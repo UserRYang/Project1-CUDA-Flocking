@@ -234,60 +234,68 @@ __device__ glm::vec3 computeVelocityChange(int N, int iSelf, const glm::vec3 *po
     // Rule 2: boids try to stay a distance d away from each other
     // Rule 3: boids try to match the speed of surrounding boids
 
-    float rule1NumNeighbor, rule3NumNeighbor; 
-    
-    glm::vec3 rule1Vel, rule2Vel, rule3Vel; 
+    glm::vec3 returnVel, rule1Vel, rule2Vel, rule3Vel;
+    float rule1NumNeighbors, rule3NumNeighbors;
 
     const glm::vec3 myPos(pos[iSelf]);
     const glm::vec3 myVel(vel[iSelf]);
 
+    // Compute Rule 1
     for (int i = 0; i < N; i++) {
 
-        if (i != iSelf) {
+        if (i == iSelf) {
+            continue; 
+        }
 
-            const glm::vec3 otherPos(pos[i]);
+        const glm::vec3 otherPos(pos[i]); 
 
-            const float dis = glm::distance(otherPos, myPos);
-
-            // Compute Rule 1
-            if (dis < rule1Distance) {
-                rule1Vel += otherPos; 
-                rule1NumNeighbor++;
-            }
-
-            // Compute Rule 2
-            if (dis < rule2Distance) {
-                rule2Vel -= (otherPos - myPos); 
-            }
-
-            // Compute Rule 3
-            if (dis < rule3Distance) {
-                rule3Vel += vel[i];
-                rule3NumNeighbor++;
-            }
+        if (glm::distance(myPos, otherPos) < rule1Distance) {
+            rule1Vel += otherPos; 
+            rule1NumNeighbors++; 
         }
     }
 
-    glm::vec3 newVel;
-
-    if (rule1NumNeighbor > 0) {
-        newVel += (rule1Vel / rule1NumNeighbor - myPos) * rule1Scale;
+    if (rule1NumNeighbors > 0) {
+        rule1Vel = (rule1Vel / rule1NumNeighbors - myPos) * rule1Scale; 
     }
 
-    newVel += rule2Vel * rule2Scale; 
+    // Compute Rule 2 
+    for (int i = 0; i < N; i++) {
 
-    if (rule3NumNeighbor > 0) {
-        newVel += (rule3Vel / rule3NumNeighbor) * rule3Scale;
+        if (i == iSelf) {
+            continue;
+        }
+
+        const glm::vec3 otherPos(pos[i]);
+
+        if (glm::distance(myPos, otherPos) < rule2Distance) {
+            rule2Vel -= (otherPos - myPos);
+        }
     }
 
-    // Clamp 
-    if (glm::length(newVel) > maxSpeed) { newVel = glm::normalize(newVel) * maxSpeed; }
+    rule2Vel *= rule2Scale; 
 
-    // Add original velocity and Clamp again
-    newVel += myVel;
-    if (glm::length(newVel) > maxSpeed) { newVel = glm::normalize(newVel) * maxSpeed; }
+    // Compute Rule 3
+    for (int i = 0; i < N; i++) {
 
-    return newVel;
+        if (i == iSelf) {
+            continue;
+        }
+
+        if (glm::distance(myPos, pos[i]) < rule3Distance) {
+            rule3Vel += vel[i];
+            rule3NumNeighbors++;
+        }
+    }
+
+    if (rule3NumNeighbors > 0) {
+        rule3Vel = (rule3Vel / rule3NumNeighbors) * rule3Scale;
+    }
+
+    returnVel = myVel + rule1Vel + rule2Vel + rule3Vel; 
+    if (glm::length(returnVel) > maxSpeed) { returnVel = glm::normalize(returnVel) * maxSpeed; }
+    
+    return returnVel;
 }
 
 /**
